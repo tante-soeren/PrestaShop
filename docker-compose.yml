@@ -4,18 +4,20 @@ volumes:
   db-data:
   vendor:
   var:
+  ssl-data:
 
 services:
   mysql:
-    image: mysql:5
-    ports:
-      - "3306"
+    image: mariadb:10
+    #ports:
+    #  - "3306"
     volumes:
       - db-data:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: prestashop
-      MYSQL_DATABASE: prestashop
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWD:-prestashop}
+      MYSQL_DATABASE: ${DB_NAME:-prestashop}
     restart: always
+
   prestashop-git:
     build: .docker
     environment:
@@ -28,9 +30,22 @@ services:
       PS_FOLDER_INSTALL: ${PS_FOLDER_INSTALL:-install-dev}
       PS_FOLDER_ADMIN: ${PS_FOLDER_ADMIN:-admin-dev}
     command: ["/tmp/wait-for-it.sh", "--timeout=60", "--strict", "mysql:3306", "--", "/tmp/docker_run_git.sh"]
-    ports:
-      - "8001:80"
+    #ports:
+    #  - "8001:80"
     volumes:
       - ./:/var/www/html/:delegated
       - vendor:/var/www/html/vendor
       - var:/var/www/html/var
+
+  nginx:
+    image: valian/docker-nginx-auto-ssl
+    restart: on-failure
+    ports:
+      - 0.0.0.0:80:80
+      - 0.0.0.0:443:443
+    volumes:
+      - ssl-data:/etc/resty-auto-ssl
+      - ./.htpasswd:/etc/nginx/.htpasswd
+      - ./shop.tante-soeren.de.conf:/etc/nginx/conf.d/shop.tante-soeren.de.conf
+    environment:
+      ALLOWED_DOMAINS: 'shop.tante-soeren.de'
